@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using DataRetrieval.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 
 namespace DataRetrieval.Controllers
 {
@@ -23,14 +24,17 @@ namespace DataRetrieval.Controllers
         public async Task<IActionResult> Index()
         {
             return View();
-//            await context.AddAsync(new Movie {name = "Green Elephant", year = 1337 });
-//            await context.SaveChangesAsync();
-//            return Json(context.movies.Count());
         }
 
-        
+
+        public async Task<IActionResult> Search(string query)
+        {
+            var result = context.movies.Where(e => e.name.Contains(query));
+
+            return Json(await result.ToListAsync());
+        }
         /// <summary>
-        /// Не говнокод, а скоростное программирование
+        /// Не говнокод, а скоростное программирование (хотя, учитывая, что даже проверки на дубликаты нет...)
         /// </summary>
         /// <param name="file"></param>
         /// <returns></returns>
@@ -64,7 +68,7 @@ namespace DataRetrieval.Controllers
                     
                 }
 
-                await context.AddRangeAsync(movies.Take(10));
+                await context.AddRangeAsync(movies);
                 await context.SaveChangesAsync();
                 return Json(movies.Count);
             }

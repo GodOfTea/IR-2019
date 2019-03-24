@@ -7,13 +7,54 @@
         <div class="form-group">
             <div class="col-md-10">
                 <p>Upload csv:</p>
-                <input type="file" name="file" />
+                <input type="file" name="file"/>
             </div>
         </div>
         <div class="form-group">
             <div class="col-md-10">
-                <input type="submit" value="Upload" />
+                <input type="submit" value="Upload"/>
             </div>
         </div>
     </form>
+
+    <input id="query"/>
+    <input id="search" type="button" value="Search"/>
+    <br/>
+    Результаты запроса
+    <br/>
+    <textarea rows="10" style="width: 350px" id="result"></textarea>
 </div>
+
+@section Scripts
+{
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script>
+
+        $(function() {
+            console.log("ready!");
+
+            const input = $("#search");
+
+            input.click(function() {
+
+                input.prop('disabled', true);
+                const query = $("#query").val();
+
+                let resultText = "";
+
+                $.get(`/Home/Search?query=${query}`)
+                    .done(function(data) {
+                        console.log(data)
+
+                        data.forEach(function(element) {
+                            resultText += `${element.name} (${element.year})\n`;
+                        });
+
+                        $("#result").val(resultText.length > 0 ? resultText : "Nothing found :(");
+
+                        input.prop('disabled', false);
+                    });
+            });
+        });
+    </script>
+}
