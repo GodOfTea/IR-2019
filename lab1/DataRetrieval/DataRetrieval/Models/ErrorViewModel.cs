@@ -1,5 +1,3 @@
-using System;
-
 namespace DataRetrieval.Models
 {
     public class ErrorViewModel
