@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using DataRetrieval.DbProvider;
 using Microsoft.AspNetCore.Mvc;
 using DataRetrieval.Models;
 using Microsoft.EntityFrameworkCore;
@@ -11,15 +12,24 @@ namespace DataRetrieval.Controllers
     public class HomeController : Controller
     {
         private readonly ApplicationDbContext context;
+        private readonly PostgreSqlDbProvider dbProvider;
 
-        public HomeController(ApplicationDbContext context)
+        public HomeController(ApplicationDbContext context, PostgreSqlDbProvider dbProvider)
         {
             this.context = context;
+            this.dbProvider = dbProvider;
         }
 
         public async Task<IActionResult> Index()
         {
             return View();
+        }
+
+        public async Task<IActionResult> TestGetAllRowsFromMovies()
+        {
+            var x = await dbProvider.GetRowsAsync("movies");
+
+            return Json(x);
         }
 
 
@@ -38,7 +48,7 @@ namespace DataRetrieval.Controllers
 
             return Json(await result.Take(10).ToListAsync());
         }
-       
+
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿using DataRetrieval.DbProvider;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -29,6 +30,8 @@ namespace DataRetrieval
             services.AddEntityFrameworkNpgsql()
                 .AddDbContext<ApplicationDbContext>()
                 .BuildServiceProvider();
+
+            services.AddSingleton<PostgreSqlDbProvider>();
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
         }
