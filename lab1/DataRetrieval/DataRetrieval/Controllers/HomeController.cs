@@ -4,11 +4,13 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using DataRetrieval.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Npgsql.PostgresTypes;
 
 namespace DataRetrieval.Controllers
 {
@@ -29,9 +31,18 @@ namespace DataRetrieval.Controllers
 
         public async Task<IActionResult> Search(string query)
         {
-            var result = context.movies.Where(e => e.name.Contains(query));
+            var yearFinder = new Regex(@".+\((\d{4})\)");
+            var match = yearFinder.Match(query);
+            var year = 0;
 
-            return Json(await result.ToListAsync());
+            if (match.Success)
+            {
+                year = int.Parse(match.Groups[1].Value);
+            }
+
+            var result = context.movies.Where(e => e.name.Contains(query) && year == default(int) || e.year == year);
+
+            return Json(await result.Take(10).ToListAsync());
         }
         /// <summary>
         /// Не говнокод, а скоростное программирование (хотя, учитывая, что даже проверки на дубликаты нет...)
