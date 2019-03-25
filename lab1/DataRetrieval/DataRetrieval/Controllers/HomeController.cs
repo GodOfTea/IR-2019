@@ -11,12 +11,10 @@ namespace DataRetrieval.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly ApplicationDbContext context;
         private readonly PostgreSqlDbProvider dbProvider;
 
-        public HomeController(ApplicationDbContext context, PostgreSqlDbProvider dbProvider)
+        public HomeController(PostgreSqlDbProvider dbProvider)
         {
-            this.context = context;
             this.dbProvider = dbProvider;
         }
 
@@ -35,18 +33,30 @@ namespace DataRetrieval.Controllers
 
         public async Task<IActionResult> Search(string query)
         {
-            var yearFinder = new Regex(@".+\((\d{4})\)");
-            var match = yearFinder.Match(query);
-            var year = 0;
-
-            if (match.Success)
+            try
             {
-                year = int.Parse(match.Groups[1].Value);
+                var pattern = @".+\((\d{4})\)";
+                var yearFinder = new Regex(pattern);
+                var match = yearFinder.Match(query);
+                var year = 0;
+
+                query = query.Replace("%", @"\%").Replace("_", @"\_");
+
+                if (match.Success)
+                {
+                    int.TryParse(match.Groups[1].Value, out year);
+
+                    query = Regex.Replace(query, @"\((\d{4})\)", "");
+                }
+                var yearCondition = year == 0 ? "" : $"OR year = {year}";
+                var result = await dbProvider.GetRowsAsync(condition: $"name ~~* '%{query}%' {yearCondition}", count: 10);
+
+                return Json(result);
             }
-
-            var result = context.movies.Where(e => e.name.Contains(query) && year == default(int) || e.year == year);
-
-            return Json(await result.Take(10).ToListAsync());
+            catch (System.Exception e)
+            {
+                return Json(new {e.Message, e.StackTrace});
+            }
         }
 
 

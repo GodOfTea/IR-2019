@@ -50,7 +50,7 @@ namespace DataRetrieval.DbProvider
             return result;
         }
 
-        public async Task<IEnumerable<Dictionary<string, object>>> GetRowsAsync(string tableName, string fields = "*", string condition = "true", int count = int.MaxValue)
+        public async Task<IEnumerable<Dictionary<string, object>>> GetRowsAsync(string tableName = "movies", string fields = "*", string condition = "true", int count = int.MaxValue)
         {
             var command = $"SELECT {fields} FROM {tableName} WHERE {condition} LIMIT {count}";
             return await ExecuteReadSqlCommandAsync(command);
