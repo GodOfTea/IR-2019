@@ -23,6 +23,15 @@ namespace DataRetrieval.Controllers
             return View();
         }
 
+        public IActionResult Lab1()
+        {
+            return View();
+        }
+        public IActionResult Lab2()
+        {
+            return View();
+        }
+
         public async Task<IActionResult> TestGetAllRowsFromMovies()
         {
             var x = await dbProvider.GetRowsAsync("movies");
