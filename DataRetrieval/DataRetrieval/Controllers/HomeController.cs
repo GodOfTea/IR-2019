@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -7,15 +6,9 @@ using System.Threading.Tasks;
 using DataRetrieval.DbProvider;
 using Microsoft.AspNetCore.Mvc;
 using DataRetrieval.Models;
-using Lucene.Net.Analysis;
-using Lucene.Net.Analysis.Core;
-using Lucene.Net.Analysis.Standard;
 using Lucene.Net.Index;
 using Lucene.Net.Search;
 using Lucene.Net.Documents;
-using Lucene.Net.Store;
-using Lucene.Net.Util;
-using Npgsql;
 
 namespace DataRetrieval.Controllers
 {
@@ -23,18 +16,13 @@ namespace DataRetrieval.Controllers
     {
         private readonly PostgreSqlDbProvider dbProvider;
 
-        private static string indexLocation = System.IO.Directory.GetCurrentDirectory();
-        private static FSDirectory dir = FSDirectory.Open(indexLocation);
-        private static LuceneVersion luceneVersion = LuceneVersion.LUCENE_48;
-        private static StandardAnalyzer analyzer = new StandardAnalyzer(luceneVersion);
-        private static IndexWriterConfig indexConfig = new IndexWriterConfig(luceneVersion, analyzer);
-        private static IndexWriter writer1 = new IndexWriter(dir, indexConfig);
+        private readonly LucyAdapter lucyAdapter;
 
-
-        public HomeController(PostgreSqlDbProvider dbProvider)
+        public HomeController(PostgreSqlDbProvider dbProvider, LucyAdapter lucyAdapter)
         {
             this.dbProvider = dbProvider;
-            InitLucy();
+            this.lucyAdapter = lucyAdapter;
+            lucyAdapter.InitLucy();
         }
 
         public async Task<IActionResult> Index()
@@ -93,156 +81,86 @@ namespace DataRetrieval.Controllers
 
         public IEnumerable<(string name, int year)> SearchWithLucy(string query)
         {
-            var counter = 0;
-            var searchQuery = query.ToLower();
-            var array = searchQuery.Split(' ').ToList();
-            var searcher = new IndexSearcher(writer1.GetReader(applyAllDeletes: true));
+            var words = query.Split(' ').ToList();
+            var searcher = new IndexSearcher(lucyAdapter.lucyWriter.GetReader(applyAllDeletes: true));
 
             var totalResults = new List<Document>();
-            //одно слово
-            var phrase = new MultiPhraseQuery();
-            foreach (var word in array)
+            //word
+            MultiPhraseQuery multiPhraseQuery;
+            foreach (var word in words)
             {
-                phrase = new MultiPhraseQuery();
-                if (!string.IsNullOrEmpty(word))
+                multiPhraseQuery = new MultiPhraseQuery();
+                if (string.IsNullOrEmpty(word)) continue;
+                multiPhraseQuery.Add(new Term("name_word", word));
+                var docs = searcher.Search(multiPhraseQuery, 10).ScoreDocs;
+                foreach (var doc in docs)
                 {
-                    phrase.Add(new Term("name_word", word));
-                    var res = searcher.Search(phrase, 10).ScoreDocs;
-                    foreach (var hit in res)
+                    var document = searcher.Doc(doc.Doc);
+                    if (totalResults.All(f => f.GetField("id").GetInt32Value() != document.GetField("id").GetInt32Value()))
+                        totalResults.Add(document);
+                }
+            }
+
+            // full name
+            multiPhraseQuery = new MultiPhraseQuery();
+            multiPhraseQuery.Add(new Term("full_name", query));
+            var scoreDocs = searcher.Search(multiPhraseQuery, 10).ScoreDocs;
+            foreach (var scoreDoc in scoreDocs)
+            {
+                var doc = searcher.Doc(scoreDoc.Doc);
+                if (totalResults.All(f => f.GetField("id").GetInt32Value() != doc.GetField("id").GetInt32Value()))
+                    totalResults.Add(doc);
+            }
+
+            //word parts
+            foreach (var word in words)
+            {
+                if (string.IsNullOrEmpty(word)) continue;
+                var wildcardQuery = new WildcardQuery(new Term("name_word", "*" + word + "*"));
+                var docs = searcher.Search(wildcardQuery, 10).ScoreDocs;
+                foreach (var doc in docs)
+                {
+                    var document = searcher.Doc(doc.Doc);
+                    if (totalResults.All(f => f.GetField("id").GetInt32Value() != document.GetField("id").GetInt32Value()))
+                        totalResults.Add(document);
+                }
+            }
+
+            //year and word part
+            var number = 0;
+            foreach (var word in words)
+            {
+                var result = int.TryParse(word, out number);
+                if (!result) continue;
+                words.RemoveAt(words.IndexOf(word));
+                break;
+            }
+
+            if (number != 0)
+            {
+                foreach (var word in words)
+                {
+                    if (string.IsNullOrEmpty(word)) continue;
+                    var booleanQuery = new BooleanQuery();
+
+                    var wildcardQuery = new WildcardQuery(new Term("name_word", "*" + word + "*"));
+                    var rangeQuery = NumericRangeQuery.NewInt32Range("year", 1, number, number, true, true);
+
+                    booleanQuery.Add(wildcardQuery, Occur.SHOULD);
+                    booleanQuery.Add(rangeQuery, Occur.SHOULD);
+                    var docs = searcher.Search(booleanQuery, 10).ScoreDocs;
+                    foreach (var doc in docs)
                     {
-                        var foundDoc = searcher.Doc(hit.Doc);
-                        if (!totalResults.Any(f =>
-                            f.GetField("id").GetInt32Value() == foundDoc.GetField("id").GetInt32Value()))
+                        var foundDoc = searcher.Doc(doc.Doc);
+                        if (totalResults.All(f => f.GetField("id").GetInt32Value() != foundDoc.GetField("id").GetInt32Value()))
                             totalResults.Add(foundDoc);
                     }
                 }
             }
-//
-//            // полное название
-//            phrase = new MultiPhraseQuery();
-//            phrase.Add(new Term("full_name", query));
-//            var hits = searcher.Search(phrase, 10).ScoreDocs;
-//            foreach (var hit in hits)
-//            {
-//                var foundDoc = searcher.Doc(hit.Doc);
-//                if (!totalResults.Any(f => f.GetField("id").GetInt32Value() == foundDoc.GetField("id").GetInt32Value()))
-//                    totalResults.Add(foundDoc);
-//            }
-//
-//            //части слов
-//            foreach (var word in array)
-//            {
-//                if (!string.IsNullOrEmpty(word))
-//                {
-//                    var wild = new WildcardQuery(new Term("name_word", "*" + word + "*"));
-//                    var res = searcher.Search(wild, 10).ScoreDocs;
-//                    foreach (var hit in res)
-//                    {
-//                        var foundDoc = searcher.Doc(hit.Doc);
-//                        if (!totalResults.Any(f =>
-//                            f.GetField("id").GetInt32Value() == foundDoc.GetField("id").GetInt32Value()))
-//                            totalResults.Add(foundDoc);
-//                    }
-//                }
-//            }
-//
-//            //год и часть слова
-//            var year_to_find = "";
-//            var number = 0;
-//            foreach (var word in array)
-//            {
-//                var result = TryParse(word, out number);
-//                if (result && number > 1800 && number <= 9999)
-//                {
-//                    year_to_find = word;
-//                    array.RemoveAt(array.IndexOf(word));
-//                    break;
-//                }
-//            }
-//
-//            Console.WriteLine(number != 0);
-//
-//            if (number != 0)
-//            {
-//                phrase = new MultiPhraseQuery();
-//                foreach (var word in array)
-//                {
-//                    if (!string.IsNullOrEmpty(word))
-//                    {
-//                        var booleanQuery = new BooleanQuery();
-//
-//                        var wild = new WildcardQuery(new Term("name_word", "*" + word + "*"));
-//                        var num = NumericRangeQuery.NewInt32Range("year", 1, number, number, true, true);
-//
-//                        booleanQuery.Add(wild, Occur.SHOULD);
-//                        booleanQuery.Add(num, Occur.SHOULD);
-//                        var res = searcher.Search(booleanQuery, 10).ScoreDocs;
-//                        foreach (var hit in res)
-//                        {
-//                            var foundDoc = searcher.Doc(hit.Doc);
-//                            if (!totalResults.Any(f =>
-//                                f.GetField("id").GetInt32Value() == foundDoc.GetField("id").GetInt32Value()))
-//                                totalResults.Add(foundDoc);
-//                        }
-//                    }
-//                }
-//            }
-
 
             foreach (var doc in totalResults)
             {
                 yield return (doc.GetValues("full_name")[0], (int) doc.GetField("year").GetInt32Value());
-            }
-        }
-
-        public async Task InitLucy()
-        {
-            var found = false;
-            using (var conn = new NpgsqlConnection("Server=84.201.147.162; Port=5432; User Id=developer; Password=rtfP@ssw0rd; Database=CoderLiQ"))
-            {
-                conn.Open();
-
-                var cmd = new NpgsqlCommand("SELECT * FROM movies", conn);
-                var dr = cmd.ExecuteReader();
-                if (dr.Read())
-                {
-                    found = true;
-                    Console.WriteLine("connection established");
-                }
-
-                if (found == false)
-                {
-                    Console.WriteLine("Data does not exist");
-                }
-
-                dr.Close();
-                var reader = cmd.ExecuteReader();
-
-                while (reader.Read())
-                {
-                    try
-                    {
-                        var sourceId = reader.GetInt32(0);
-                        var sourceName = reader.GetString(1);
-                        int.TryParse(reader.GetInt16(2).ToString(), out var yearInt);
-
-                        var doc = new Document();
-                        doc.Add(new Field("full_name", sourceName, StringField.TYPE_STORED));
-                        //var word = source.name.Split(' ')[0];
-                        foreach (var word in sourceName.Split(' '))
-                        {
-                            if (!string.IsNullOrEmpty(word))
-                                doc.Add(new Field("name_word", word, TextField.TYPE_STORED));
-                        }
-
-                        doc.Add(new StoredField("id", sourceId));
-                        doc.Add(new Int32Field("year", yearInt, Field.Store.YES));
-                        writer1.AddDocument(doc);
-                    }
-                    catch
-                    {
-                    }
-                }
             }
         }
     }

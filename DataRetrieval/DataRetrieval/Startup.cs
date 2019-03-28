@@ -32,6 +32,7 @@ namespace DataRetrieval
                 .BuildServiceProvider();
 
             services.AddSingleton<PostgreSqlDbProvider>();
+            services.AddSingleton<LucyAdapter>();
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
         }
