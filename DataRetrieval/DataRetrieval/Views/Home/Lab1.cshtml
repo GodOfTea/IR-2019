@@ -2,10 +2,11 @@
     ViewData["Title"] = "Lab1";
 }
 
-<h1>Lab1</h1>
+<h1>Labs</h1>
 <div class="text-center">
     <input id="query" placeholder="Например test (2009)" />
     <input id="search" type="button" value="Search" />
+    <input id="lucy-search" type="button" value="Search with Lucy" />
     <br />
     Результаты запроса
     <br />
@@ -47,6 +48,36 @@
                         input.prop('disabled', false);
                     });
             });
+
+
+            const lucy = $("#lucy-search");
+            lucy.click(function() {
+
+                lucy.prop('disabled', true);
+                const query = $("#query").val();
+
+                let resultText = "";
+
+                $.get(`/Home/SearchWithLucy?query=${query}`)
+                    .done(function(data) {
+                        console.log(data);
+                        try {
+                            data.forEach(function (element) {
+                                resultText += `${element.name} (${element.year})\n`;
+                            });
+
+                            $("#result").val(resultText.length > 0 ? resultText : "Nothing found :(");
+                        } catch (e) {
+                            console.log(e);
+                        }
+
+                    })
+                    .always(function() {
+                        lucy.prop('disabled', false);
+                    });
+            });
+
+
         });
     </script>
 }

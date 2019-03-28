@@ -58,7 +58,7 @@ namespace DataRetrieval
             {
                 routes.MapRoute(
                     name: "default",
-                    template: "{controller=Home}/{action=Index}/{id?}");
+                    template: "{controller=Home}/{action=Lab1}/{id?}");
             });
         }
     }

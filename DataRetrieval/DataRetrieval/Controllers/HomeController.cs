@@ -1,18 +1,27 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using DataRetrieval.DbProvider;
 using Microsoft.AspNetCore.Mvc;
 using DataRetrieval.Models;
-using Microsoft.EntityFrameworkCore;
+using Lucene.Net.Analysis;
+using Lucene.Net.Analysis.Core;
+using Lucene.Net.Analysis.Standard;
+using Lucene.Net.Index;
+using Lucene.Net.Search;
+using Lucene.Net.Documents;
+using Lucene.Net.Store;
+using Lucene.Net.Util;
+using Npgsql;
 
 namespace DataRetrieval.Controllers
 {
     public class HomeController : Controller
     {
         private readonly PostgreSqlDbProvider dbProvider;
-
         public HomeController(PostgreSqlDbProvider dbProvider)
         {
             this.dbProvider = dbProvider;
@@ -27,18 +36,12 @@ namespace DataRetrieval.Controllers
         {
             return View();
         }
-        public IActionResult Lab2()
-        {
-            return View();
-        }
-
         public async Task<IActionResult> TestGetAllRowsFromMovies()
         {
             var x = await dbProvider.GetRowsAsync("movies");
 
             return Json(x);
         }
-
 
         public async Task<IActionResult> Search(string query)
         {
