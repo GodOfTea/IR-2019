@@ -79,6 +79,11 @@ namespace DataRetrieval.Controllers
             return View(new ErrorViewModel {RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier});
         }
 
+        /// <summary>
+        /// On base of https://lucenenet.apache.org
+        /// </summary>
+        /// <param name="query"></param>
+        /// <returns></returns>
         public IEnumerable<(string name, int year)> SearchWithLucy(string query)
         {
             var words = query.Split(' ').ToList();
@@ -158,7 +163,7 @@ namespace DataRetrieval.Controllers
                 }
             }
 
-            foreach (var doc in totalResults)
+            foreach (var doc in totalResults.Take(10))
             {
                 yield return (doc.GetValues("full_name")[0], (int) doc.GetField("year").GetInt32Value());
             }
