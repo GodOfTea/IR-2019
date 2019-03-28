@@ -32,6 +32,7 @@ namespace DataRetrieval
                 .BuildServiceProvider();
 
             services.AddSingleton<PostgreSqlDbProvider>();
+            services.AddSingleton<LucyAdapter>();
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
         }
@@ -58,7 +59,7 @@ namespace DataRetrieval
             {
                 routes.MapRoute(
                     name: "default",
-                    template: "{controller=Home}/{action=Index}/{id?}");
+                    template: "{controller=Home}/{action=Lab1}/{id?}");
             });
         }
     }
